@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Send, User, Clock, Moon, Sun } from "lucide-react";
+import { ArrowLeft, Send, User, Clock, Moon, Sun, RefreshCw, ShieldCheck } from "lucide-react";
 import { PerplexityAttribution } from "@/components/PerplexityAttribution";
 import type { Plate, Comment } from "@shared/schema";
 
@@ -167,9 +167,29 @@ export default function PlateDetail() {
   const [commentText, setCommentText] = useState("");
   const [grade, setGrade] = useState(0);
   const [isDark, setIsDark] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaQuestion, setCaptchaQuestion] = useState("");
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
+  const [captchaLoading, setCaptchaLoading] = useState(false);
+
+  const loadCaptcha = async () => {
+    setCaptchaLoading(true);
+    setCaptchaAnswer("");
+    try {
+      const res = await apiRequest("GET", "/api/captcha");
+      const data = await res.json();
+      setCaptchaToken(data.token);
+      setCaptchaQuestion(data.question);
+    } catch {
+      setCaptchaQuestion("Fehler beim Laden");
+    } finally {
+      setCaptchaLoading(false);
+    }
+  };
 
   useEffect(() => {
     setIsDark(document.documentElement.classList.contains("dark"));
+    loadCaptcha();
   }, []);
 
   const toggleTheme = () => {
@@ -188,7 +208,7 @@ export default function PlateDetail() {
   });
 
   const commentMutation = useMutation({
-    mutationFn: async (data: { username: string; text: string; grade: number }) => {
+    mutationFn: async (data: { username: string; text: string; grade: number; captchaToken: string; captchaAnswer: number }) => {
       const res = await apiRequest("POST", `/api/plates/${id}/comments`, data);
       return res.json();
     },
@@ -198,18 +218,23 @@ export default function PlateDetail() {
       toast({ title: "Kommentar hinzugefügt" });
       setCommentText("");
       setGrade(0);
+      setCaptchaAnswer("");
+      loadCaptcha(); // new captcha for next comment
     },
     onError: (err: Error) => {
       toast({ title: "Fehler", description: err.message, variant: "destructive" });
+      loadCaptcha(); // refresh captcha on error too
     },
   });
 
   const handleSubmitComment = () => {
-    if (!username.trim() || !commentText.trim() || grade === 0) return;
+    if (!username.trim() || !commentText.trim() || grade === 0 || !captchaAnswer.trim()) return;
     commentMutation.mutate({
       username: username.trim(),
       text: commentText.trim(),
       grade,
+      captchaToken,
+      captchaAnswer: parseInt(captchaAnswer, 10),
     });
   };
 
@@ -217,7 +242,7 @@ export default function PlateDetail() {
     ? comments.reduce((sum, c) => sum + c.grade, 0) / comments.length
     : 0;
 
-  const isFormValid = username.trim().length >= 2 && commentText.trim().length >= 3 && grade > 0;
+  const isFormValid = username.trim().length >= 2 && commentText.trim().length >= 3 && grade > 0 && captchaAnswer.trim().length > 0;
 
   if (plateLoading) {
     return (
@@ -331,6 +356,44 @@ export default function PlateDetail() {
               className="resize-none text-sm"
               data-testid="input-comment"
             />
+          </div>
+
+          {/* CAPTCHA */}
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Sicherheitsprüfung
+            </label>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 border">
+                <span className="text-sm font-mono font-bold tracking-wide whitespace-nowrap" data-testid="text-captcha-question">
+                  {captchaLoading ? "..." : captchaQuestion}
+                </span>
+                <Input
+                  className="w-20 text-center font-mono font-bold text-base h-8"
+                  placeholder="?"
+                  value={captchaAnswer}
+                  onChange={(e) => setCaptchaAnswer(e.target.value.replace(/[^0-9]/g, ""))}
+                  maxLength={4}
+                  inputMode="numeric"
+                  data-testid="input-captcha"
+                />
+              </div>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={loadCaptcha}
+                disabled={captchaLoading}
+                className="shrink-0"
+                data-testid="button-captcha-refresh"
+              >
+                <RefreshCw className={`w-4 h-4 ${captchaLoading ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Löse die Aufgabe, um Spam zu verhindern
+            </p>
           </div>
 
           <Button
