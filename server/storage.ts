@@ -10,6 +10,7 @@ import { eq, sql, desc, asc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 
+// Database connection — uses DATABASE_URL environment variable
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
@@ -18,13 +19,18 @@ const pool = new pg.Pool({
 export const db = drizzle(pool);
 
 export interface IStorage {
+  // Plates
   getPlates(): Promise<Plate[]>;
   getPlateByPlate(plate: string): Promise<Plate | undefined>;
   getPlateById(id: number): Promise<Plate | undefined>;
   createPlate(plate: InsertPlate): Promise<Plate>;
   searchPlates(query: string): Promise<Plate[]>;
+
+  // Comments
   getCommentsByPlateId(plateId: number): Promise<Comment[]>;
   createComment(comment: InsertComment): Promise<Comment>;
+
+  // Rankings
   getTopRated(limit: number): Promise<Array<{
     plate: Plate;
     avgGrade: number;
@@ -73,10 +79,11 @@ export class PgStorage implements IStorage {
   async searchPlates(query: string): Promise<Plate[]> {
     const normalized = query.toUpperCase().replace(/[^A-ZÄÖÜ0-9]/g, "");
     if (!normalized) return [];
+    // Use ILIKE for fuzzy matching, search with spaces removed
     return db
       .select()
       .from(plates)
-      .where(sql`REPLACE(${plates.plate}, ' ', '') ILIKE ${"%%" + normalized + "%%"}`)
+      .where(sql`REPLACE(${plates.plate}, ' ', '') ILIKE ${"%" + normalized + "%"}`)
       .limit(20);
   }
 
@@ -102,6 +109,7 @@ export class PgStorage implements IStorage {
   }
 
   private async getRankedPlates(order: "best" | "worst", limit: number) {
+    // Get plates with their average grade and comment count
     const ranked = await db
       .select({
         plateId: comments.plateId,
