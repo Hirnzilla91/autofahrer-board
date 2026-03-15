@@ -20,6 +20,7 @@ async function setup() {
   await client.connect();
   console.log("Connected to database.");
 
+  // Create tables
   await client.query(`
     CREATE TABLE IF NOT EXISTS plates (
       id SERIAL PRIMARY KEY,
@@ -41,10 +42,12 @@ async function setup() {
   `);
   console.log("Table 'comments' ready.");
 
+  // Create index for faster lookups
   await client.query(`
     CREATE INDEX IF NOT EXISTS idx_comments_plate_id ON comments(plate_id);
   `);
 
+  // Check if seed data already exists
   const existing = await client.query("SELECT COUNT(*) FROM plates");
   if (parseInt(existing.rows[0].count) > 0) {
     console.log("Seed data already exists. Skipping.");
@@ -52,6 +55,7 @@ async function setup() {
     return;
   }
 
+  // Seed plates
   const samplePlates = [
     "HH AB 1234", "B CD 567", "M XY 89", "K LM 4321", "F GH 999",
     "S TU 111", "D EF 222", "HB RS 333", "N WX 444", "L PQ 555",
@@ -64,6 +68,7 @@ async function setup() {
   }
   console.log(`Seeded ${samplePlates.length} plates.`);
 
+  // Seed comments
   const usernames = [
     "AutoFan42", "StrassenBeobachter", "VerkehrsCop", "Blinkerpolizei",
     "Spurhalter", "Tempolimit", "Parkverbot", "Ampelblitzer",
@@ -92,6 +97,7 @@ async function setup() {
     "Hat mir nett die Vorfahrt gelassen.",
   ];
 
+  // Get all plate IDs
   const plateRows = await client.query("SELECT id FROM plates ORDER BY id");
   const plateIds = plateRows.rows.map((r: any) => r.id);
 
@@ -103,8 +109,8 @@ async function setup() {
       const commentList = isGood ? goodComments : badComments;
       const text = commentList[Math.floor(Math.random() * commentList.length)];
       const grade = isGood
-        ? Math.floor(Math.random() * 2) + 1
-        : Math.floor(Math.random() * 3) + 4;
+        ? Math.floor(Math.random() * 2) + 1  // 1-2 for good
+        : Math.floor(Math.random() * 3) + 4; // 4-6 for bad
 
       await client.query(
         "INSERT INTO comments (plate_id, username, text, grade) VALUES ($1, $2, $3, $4)",
