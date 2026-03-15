@@ -4,16 +4,18 @@ import { storage } from "./storage";
 import { insertPlateSchema, insertCommentSchema } from "@shared/schema";
 import { z } from "zod";
 
+// Security: sanitize string input — strip HTML tags and trim
 function sanitize(input: string): string {
   return input
-    .replace(/<[^>]*>/g, "")
-    .replace(/[<>"'&]/g, "")
+    .replace(/<[^>]*>/g, "")        // Strip HTML tags
+    .replace(/[<>"'&]/g, "")        // Remove dangerous characters
     .trim();
 }
 
+// Rate limiting per IP (simple in-memory)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 30;
-const RATE_WINDOW = 60 * 1000;
+const RATE_LIMIT = 30; // requests per window
+const RATE_WINDOW = 60 * 1000; // 1 minute
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
@@ -37,6 +39,7 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  // Rate limit middleware for write operations
   const rateLimitMiddleware = (req: any, res: any, next: any) => {
     const ip = req.ip || req.connection.remoteAddress || "unknown";
     if (!checkRateLimit(ip)) {
@@ -45,11 +48,13 @@ export async function registerRoutes(
     next();
   };
 
+  // GET /api/plates — list all plates
   app.get("/api/plates", async (_req, res) => {
     const plates = await storage.getPlates();
     res.json(plates);
   });
 
+  // GET /api/plates/search?q=... — search plates
   app.get("/api/plates/search", async (req, res) => {
     const query = typeof req.query.q === "string" ? sanitize(req.query.q) : "";
     if (query.length < 1) {
@@ -59,6 +64,7 @@ export async function registerRoutes(
     res.json(plates);
   });
 
+  // GET /api/plates/:id — get single plate
   app.get("/api/plates/:id", async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -71,12 +77,14 @@ export async function registerRoutes(
     res.json(plate);
   });
 
+  // POST /api/plates — register a new plate
   app.post("/api/plates", rateLimitMiddleware, async (req, res) => {
     try {
       const data = insertPlateSchema.parse({
         plate: sanitize(req.body.plate || ""),
       });
 
+      // Check if plate already exists
       const existing = await storage.getPlateByPlate(data.plate);
       if (existing) {
         return res.json(existing);
@@ -94,6 +102,7 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/plates/:id/comments — get comments for a plate
   app.get("/api/plates/:id/comments", async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
@@ -103,6 +112,7 @@ export async function registerRoutes(
     res.json(comments);
   });
 
+  // POST /api/plates/:id/comments — add a comment
   app.post("/api/plates/:id/comments", rateLimitMiddleware, async (req, res) => {
     try {
       const plateId = parseInt(req.params.id, 10);
@@ -134,11 +144,13 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/rankings/top — top 10 best drivers
   app.get("/api/rankings/top", async (_req, res) => {
     const top = await storage.getTopRated(10);
     res.json(top);
   });
 
+  // GET /api/rankings/worst — top 10 worst drivers
   app.get("/api/rankings/worst", async (_req, res) => {
     const worst = await storage.getWorstRated(10);
     res.json(worst);
