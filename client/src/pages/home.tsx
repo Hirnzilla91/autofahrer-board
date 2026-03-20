@@ -28,6 +28,15 @@ function getGradeColor(grade: number): string {
   return "#991b1b";
 }
 
+function getGradeEmoji(grade: number): string {
+  if (grade <= 1.5) return "😇";
+  if (grade <= 2.5) return "😊";
+  if (grade <= 3.5) return "😐";
+  if (grade <= 4.5) return "😬";
+  if (grade <= 5.5) return "😡";
+  return "💀";
+}
+
 function getGradeLabel(grade: number): string {
   if (grade <= 1.5) return "Vorbildlich";
   if (grade <= 2.5) return "Gut";
@@ -48,8 +57,9 @@ function GradeBar({ grade }: { grade: number }) {
           style={{ width: `${pct}%`, backgroundColor: color }}
         />
       </div>
-      <span className="text-xs font-bold tabular-nums min-w-[2rem] text-right" style={{ color }}>
-        {grade.toFixed(1)}
+      <span className="text-sm min-w-[3rem] text-right flex items-center justify-end gap-0.5">
+        <span className="font-bold tabular-nums text-xs" style={{ color }}>{grade.toFixed(1)}</span>
+        <span>{getGradeEmoji(grade)}</span>
       </span>
     </div>
   );

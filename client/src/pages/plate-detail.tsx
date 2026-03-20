@@ -23,12 +23,24 @@ function getGradeColor(grade: number): string {
 }
 
 function getGradeEmoji(grade: number): string {
-  if (grade === 1) return "1";
-  if (grade === 2) return "2";
-  if (grade === 3) return "3";
-  if (grade === 4) return "4";
-  if (grade === 5) return "5";
-  return "6";
+  const emojis: Record<number, string> = {
+    1: "😇",
+    2: "😊",
+    3: "😐",
+    4: "😬",
+    5: "😡",
+    6: "💀",
+  };
+  return emojis[grade] || "😐";
+}
+
+function getAvgGradeEmoji(grade: number): string {
+  if (grade <= 1.5) return "😇";
+  if (grade <= 2.5) return "😊";
+  if (grade <= 3.5) return "😐";
+  if (grade <= 4.5) return "😬";
+  if (grade <= 5.5) return "😡";
+  return "💀";
 }
 
 function getGradeLabel(grade: number): string {
@@ -51,11 +63,9 @@ function GradeScale({ avgGrade, totalComments }: { avgGrade: number; totalCommen
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">Durchschnittsnote</span>
-        <span
-          className="text-lg font-bold tabular-nums"
-          style={{ color: getGradeColor(avgGrade) }}
-        >
-          {avgGrade.toFixed(1)}
+        <span className="text-lg font-bold tabular-nums flex items-center gap-1">
+          <span style={{ color: getGradeColor(avgGrade) }}>{avgGrade.toFixed(1)}</span>
+          <span className="text-xl">{getAvgGradeEmoji(avgGrade)}</span>
         </span>
       </div>
       <div className="flex gap-0.5 h-3 rounded-full overflow-hidden">
@@ -71,8 +81,8 @@ function GradeScale({ avgGrade, totalComments }: { avgGrade: number; totalCommen
         ))}
       </div>
       <div className="flex justify-between">
-        <span className="text-[10px] text-green-500 font-medium">1 Sehr gut</span>
-        <span className="text-[10px] text-red-700 dark:text-red-400 font-medium">6 Ungenügend</span>
+        <span className="text-[10px] text-green-500 font-medium">😇 Sehr gut</span>
+        <span className="text-[10px] text-red-700 dark:text-red-400 font-medium">💀 Ungenügend</span>
       </div>
       <p className="text-xs text-muted-foreground text-center">
         Basierend auf {totalComments} {totalComments === 1 ? "Bewertung" : "Bewertungen"}
@@ -94,24 +104,23 @@ function GradeSelector({ value, onChange }: { value: number; onChange: (v: numbe
             key={g}
             type="button"
             onClick={() => onChange(g)}
-            className={`flex-1 h-10 rounded-lg text-sm font-bold transition-all border-2 ${
+            className={`flex-1 h-10 rounded-lg text-lg transition-all border-2 ${
               value === g
-                ? "scale-105 border-foreground/30"
+                ? "scale-110 border-foreground/30"
                 : "border-transparent opacity-50 hover:opacity-80"
             }`}
             style={{
               backgroundColor: colors[i],
-              color: g <= 3 ? "#000" : "#fff",
             }}
             data-testid={`button-grade-${g}`}
           >
-            {g}
+            {getGradeEmoji(g)}
           </button>
         ))}
       </div>
       {value > 0 && (
         <p className="text-xs text-center font-medium" style={{ color: colors[value - 1] }}>
-          {getGradeLabel(value)}
+          {getGradeEmoji(value)} {getGradeLabel(value)}
         </p>
       )}
     </div>
@@ -125,10 +134,10 @@ function CommentItem({ comment }: { comment: Comment }) {
   return (
     <div className="flex gap-3 py-3 border-b last:border-0" data-testid={`comment-${comment.id}`}>
       <div
-        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-        style={{ backgroundColor: gradeColor, color: comment.grade <= 3 ? "#000" : "#fff" }}
+        className="w-8 h-8 rounded-full flex items-center justify-center text-base shrink-0"
+        style={{ backgroundColor: gradeColor }}
       >
-        {comment.grade}
+        {getGradeEmoji(comment.grade)}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
